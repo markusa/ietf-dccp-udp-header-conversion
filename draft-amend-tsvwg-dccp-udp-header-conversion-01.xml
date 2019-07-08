@@ -162,7 +162,7 @@
    All generic header fields have the meaning specified in <xref target="RFC4340"/>, updated by <xref target="RFC5596"/>.</t>
       </section>
       <section title="UDP header" anchor="section-3.3">
-        <figure title="The UDP Header [RFC768]" anchor="ref-the-udp-header-rfc768">
+        <figure title="The UDP Header [RFC0768]" anchor="ref-the-udp-header-rfc768">
           <artwork><![CDATA[
    0                   1                   2                   3
    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
