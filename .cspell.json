@@ -1,0 +1,39 @@
+// cSpell Settings
+{
+    // Version of the setting file.  Always 0.1
+    "version": "0.1",
+    // language - current active spelling language
+    "language": "en_US",
+    // words - list of words to be always considered correct
+    "words": [
+       "docname",
+       "tsvwg",
+       "dccp",
+       "submissiontype",
+       "sortrefs",
+       "symrefs",
+       "DCCP",
+       "Markus",
+       "Brunstrom",
+       "Karlstad",
+       "Universitetsgatan",
+       "Kassler",
+       "Andreas",
+       "Rakocevic",
+       "Veselin",
+       "Datagram",
+       "NATs",
+       "NATP",
+       "multipath",
+       "NAPT",
+       "goodput",
+       "DCCP's",
+       "datagram",
+       "DCCP'S",
+       "ination",
+       "pseudoheader",
+       "IANA",
+       "udccp",
+       "pseudocode"
+    ]
+}

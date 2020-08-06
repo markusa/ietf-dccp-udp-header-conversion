@@ -1,0 +1,429 @@
+---
+title: Lossless and overhead free DCCP - UDP header conversion (U-DCCP)
+abbrev: DCCP - UDP header conversion
+docname: draft-amend-tsvwg-dccp-udp-header-conversion-01
+date: 2019-07-08
+cat: exp
+
+ipr: trust200902
+
+area: transport
+wg: Transport Area Working Group
+keyword: Internet-Draft
+submissiontype: IETF
+
+coding: us-ascii
+stand_alone: true
+
+pi: [toc, sortrefs, symrefs]
+
+
+author:
+ -
+  ins: M. Amend
+  name: Markus Amend
+  org: Deutsche Telekom
+  abbrev: DT
+  street: Deutsche-Telekom-Allee 9
+  city: Darmstadt
+  code: 64295
+  country: Germany
+  email: Markus.Amend@telekom.de
+ -
+  ins: A. Brunstrom
+  name: Anna Brunstrom
+  org: Karlstad University
+  street: Universitetsgatan 2
+  city: Karlstad
+  code: 651 88
+  country: Sweden
+  email: anna.brunstrom@kau.se
+ -
+  ins: A. Kassler
+  name: Andreas Kassler
+  org: Karlstad University
+  street: Universitetsgatan 2
+  city: Karlstad
+  code: 651 88
+  country: Sweden
+  email: andreas.kassler@kau.se
+ -
+  ins: V. Rakocevic
+  name: Veselin Rakocevic
+  org: City University of London
+  street: Northampton Square
+  city: London
+  country: United Kingdom
+  email: veselin.rakocevic.1@city.ac.uk
+  
+informative:
+  RFC0768:
+  RFC2119:
+  RFC4340:
+  RFC4787:
+  RFC5596:
+  RFC5597:
+  RFC6773:
+  RFC6888:
+  RFC7857:
+
+--- abstract
+
+
+The Datagram Congestion Control Protocol (DCCP) is a transport-layer protocol
+that provides upper layers with the ability to use non-reliable congestion-controlled
+flows. DCCP is not widely deployed in the Internet, and the reason for that
+can be defined as a typical example of a chicken-egg problem. Even if an
+application developer decided to use DCCP, the middle-boxes like firewalls
+and NATs would prevent DCCP end-to-end since they lack support for DCCP.
+Moreover, as long as the protocol penetration of DCCP does not increase,
+the middle-boxes will not handle DCCP properly. To overcome this challenge,
+NAT/NATP traversal and UDP encapsulation for DCCP is already defined. However,
+the former requires special middle-box support and the latter introduces
+overhead. The recent proposal of a multipath extension for DCCP further underlines
+the challenge of efficient middle-box passing as its main goal is to be applied
+over the Internet, traversing numerous uncontrolled middle-boxes. This document
+introduces a new solution which disguises DCCP during transmission as UDP
+without requiring middle-box modification or introducing any overhead.
+
+--- middle
+
+# Introduction {#intro}
+
+The Datagram Congestion Control Protocol (DCCP) {{RFC4340}} is a
+transport-layer protocol that provides upper layers with the ability
+to use non-reliable congestion-controlled flows. The current
+specification for DCCP {{RFC4340}} specifies a direct native
+encapsulation in IPv4 or IPv6 packets.
+
+DCCP support has been specified for devices that use Network Address
+Translation (NAT) or Network Address and Port Translation (NAPT)
+{{RFC5597}}. However, there is a significant installed base of
+NAT/NAPT devices that do not support {{RFC5597}}.  An UDP
+encapsulation for DCCP {{RFC6773}} circumvents such limitations and
+makes DCCP compatible with any UDP {{RFC0768}} compliant device that
+supports {{RFC4787}} but does not support {{RFC5597}}. For
+convenience, the standard encapsulation for DCCP {{RFC4340}}
+(including {{RFC5596}} and {{RFC5597}} as required) is referred to as
+DCCP-STD, whereas the UDP encapsulation for DCCP {{RFC6773}} is
+referred to as DCCP-UDP.
+
+It can be stated that DCCP-STD and DCCP-UDP are techniques which increase
+the success rate of DCCP transmissions significantly. However, DCCP-STD fails
+on devices that block DCCP for any reasons. On the other hand, DCCP-UDP uses
+the well-accepted UDP to let devices assume they are handling the UDP protocol,
+but at the cost of a reduced goodput/throughput ratio.
+
+To compensate for the inefficiency of DCCP-STD (device blocking) and DCCP-UDP
+(overhead), this document proposes a beneficial modification scheme relying
+on UDP (like DCCP-UDP), but with no overhead.  This goal is reached by re-arranging
+DCCP's extended header to make it look like UDP, without losing critical
+information. This solution is referred to as U-DCCP.
+
+U-DCCP is limited to DCCP's extended header, requiring X is set
+to 1. Otherwise U-DCCP relies on the NAT/NATP functionalities
+specified for UDP in {{RFC4787}}, {{RFC6888}} and {{RFC7857}}.
+
+
+# Terminology {#terminology}
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+document are to be interpreted as described in {{RFC2119}}.
+
+
+# U-DCCP {#concept}
+
+## Overview {#concept_overview}
+
+The basic approach of U-DCCP is to modify the extended header of a
+DCCP packet so that it appears like UDP {{RFC0768}}. In particular,
+this takes place without losing any header information, but requires a
+U-DCCP termination before the packet is delivered to the DCCP end
+system.  This method does not change the 4-tuple of IP and port
+addressing, however it changes the protocol carried over IP from DCCP
+to UDP.  As a consequence, the length of the packet remains unchanged
+and behaves like DCCP-STD. The solution is not a tunneling
+approach. It requires that the same port used by DCCP can be used by
+UDP.
+
+The method is designed to support use when the IP addresses are modified
+by a device that implements NAT/NAPT.  A NAT translates the IP addresses,
+which impacts the transport-layer checksum. A NAPT device may also translate
+the port values (usually the source port).  In both cases, the outer transport
+header that includes these values would need to be updated by the NAT/NAPT.
+
+U-DCCP supports IPv4 and IPv6.
+
+The basic format of a U-DCCP packet is:
+
+
+~~~~
++-----------------------------------+
+|     IP Header (IPv4 or IPv6)      |  Variable length
++-----------------------------------+
+|UDP like arranged DCCP ext. Header |  8 bytes \
++-----------------------------------+           ) U-DCCP header
+|Rest of rearranged DCCP ext. Header|  8 bytes /
++-----------------------------------+
+| Additional (type-specific) Fields |  Variable length (could be 0)
++-----------------------------------+
+|           DCCP Options            |  Variable length (could be 0)
++-----------------------------------+
+|      Application Data Area        |  Variable length (could be 0)
++-----------------------------------+
+~~~~
+{: #ref-format-of-u-dccp-packet title='Format of U-DCCP packet'}
+
+The U-DCCP header is described in {{conversion_considerations}} after introducing the traditional DCCP header in {{concept_overview}} and its target appearance of a UDP header in {{generic_header}}. {{udp_header}} discusses considerations for building the U-DCCP header upfront.
+
+
+## The DCCP Generic header {#generic_header}
+
+The DCCP Generic Header {{RFC4340}} takes two forms: one with long
+sequence numbers (48 bits) and the other with short sequence numbers
+(24 bits). The short one is not part of U-DCCP's modification.
+
+
+~~~~
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |          Source Port          |           Dest Port           |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |  Data Offset  | CCVal | CsCov |           Checksum            |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     |       |X|               |                               .
+  | Res | Type  |=|   Reserved    |  Sequence Number (high bits)  .
+  |     |       |1|               |                               .
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                  Sequence Number (low bits)                   |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~
+{: #ref-the-extended-dccp-header-with-long-sequence-numbers-rfc4340 title='The extended DCCP Header with Long Sequence Numbers [RFC4340]'}
+
+
+~~~~
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |          Source Port          |           Dest Port           |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |  Data Offset  | CCVal | CsCov |           Checksum            |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     |       |X|                                               |
+  | Res | Type  |=|   Sequence Number (low bits)                  |
+  |     |       |0|                                               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~
+{: #ref-the-short-dccp-header-with-short-sequence-numbers-rfc4340 title='The short DCCP Header with Short Sequence Numbers [RFC4340]'}
+
+All generic header fields have the meaning specified in {{RFC4340}}, updated by {{RFC5596}}.
+
+
+## UDP header {#udp_header}
+
+
+~~~~
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |          Source Port          |           Dest Port           |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |             Length            |           Checksum            |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~
+{: #ref-the-udp-header-rfc768 title='The UDP Header [RFC0768]'}
+
+All header fields have the meaning specified in {{RFC0768}}.
+
+
+## U-DCCP conversion considerations {#conversion_considerations}
+
+The U-DCCP header has the goal to merge the information of DCCP's
+extended header ({{concept_overview}}) and imitates in the first 64 bits
+the UDP header ({{generic_header}}). Information required to restore a
+DCCP header from any conversion, which must not be lost, includes:
+source and destination port, Data Offset, CCVal, CsCov, Checksum,
+Type, X and the Sequence Number.
+
+Compared with the UDP header, the DCCP extended header shows similarities
+in source and destination port and checksum. The length field of UDP (bits
+33-48) is not part of the DCCP header and contains in case of DCCP the fields
+Data Offset, CCVal and CsCov.
+
+For the goal of imitating UDP, the checksum must cover the whole datagram,
+which renders any limitation by CsCov useless. The checksum itself is required
+to re-calculate after conversion anyway.
+
+If the conversion is limited to DCCP'S extended header only, X is always
+"1".
+
+Thus, Data Offset, CCVal, Type and Sequence Number must be re-arranged in
+a way that the Length field of UDP can be applied.
+
+
+## U-DCCP header {#udccp_header}
+
+The considerations of {{udp_header}} leads to the following header,
+denoted as U-DCCP header.
+
+
+~~~~
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+U  |          Source Port          |           Dest Port           |
+D  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+P  |          Length               |           Checksum            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Type  | CCVal |  Data Offset  |  Sequence Number (high bits)  .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   .                  Sequence Number (low bits)                   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+~~~~
+{: #ref-the-u-dccp-header title='The U-DCCP Header'}
+
+The first 8 bytes of the U-DCCP header corresponds to {{RFC0768}} and
+the fields are interpreted as follows:
+
+Source and Dest(ination) Ports: 16 bits each
+
+These fields identify the UDP ports used by the source and destination (respectively)
+of the packet to listen for incoming UDP packets. The UDP port values identify
+the DCCP source and destination ports.
+
+Length: 16 bits
+
+This field is the length of the UDP datagram, including the UDP header and
+the payload (for U-DCCP, the payload comprises the payload of the original
+DCCP datagram and part of its header).
+
+Checksum: 16 bits
+
+This field is the Internet checksum of a network-layer pseudoheader
+and Length bytes of the UDP packet {{RFC0768}}. The UDP checksum MUST
+NOT be zero for a U-DCCP packet.
+
+The remaining 8 bytes of the U-DCCP header contains:
+
+Type, CCVal, Data Offset, Seq. Number: As specified in {{RFC4340}}
+
+In case U-DCCP is applied, the IP layer must be instructed to carry an UDP
+datagram and its checksum must be re-calculated. For detailed information
+see {{pseudocode_conversion}}.
+
+
+## Implementation {#implementation}
+
+The process of applying U-DCCP is defined as follows:
+
+DCCP generation -> U-DCCP conversion -> UDP transmission -> U-DCCP reception
+and restoration -> DCCP reception
+
+The conversion can be integrated into DCCP endpoints directly or as an
+additional component on the way along the transmission
+route. Depending on the degree of integration, especially the process
+of checksum calculation and validation can be
+optimized. {{pseudocode_conversion}} and {{pseudocode_restoration}} provide a possible
+pseudo-code for the conversion without any optimized integration into
+the sender's network stack or into the receiver's network stack. The
+pseudo-code assumes explicit knowledge on which U-DCCP flows need
+conversion between the sender and the receiver.
+
+
+## Pseudo-code DCCP to U-DCCP conversion {#pseudocode_conversion}
+
+A possible processing of an already generated DCCP datagram for
+U-DCCP conversion:
+
+
+
+1. Receive DCCP datagram.
+
+1. Check eligibility for conversion; otherwise bypass conversion.
+
+1. Verify consistency, e.g. checksum; otherwise drop.
+
+1. Shift Type and CCVal field to the ninth octet.
+
+1. Shift Data Offset field to the tenth octet.
+
+1. Place a length information at octet 5+6 corresponding to {{RFC0768}}.
+
+1. Modify the IP header's encapsulated protocol from DCCP to UDP.
+
+1. Re-calculate IP header checksum.
+
+1. Reset DCCP checksum field: octet 7+8 = 0.
+
+1. Generate new checksum at octet 7+8 as described in {{RFC0768}}.
+
+1. Forward to destination based on the unmodified 4-tuple of IP-addresses and
+  ports.
+
+
+
+## Pseudo-code U-DCCP to DCCP restoration {#pseudocode_restoration}
+
+A possible processing of an already converted U-DCCP datagram for
+DCCP restoration:
+
+
+
+1. Receive UDP datagram.
+
+1. Check eligibility for restoration; otherwise bypass restoration
+
+1. Validate UDP checksum; otherwise drop.
+
+1. Restore Data Offset field according to {{RFC4340}}.
+
+1. Restore CCVal field according to {{RFC4340}}.
+
+1. Set CsCov field according to {{RFC4340}} to "0".
+
+1. Restore Type field according to {{RFC4340}}.
+
+1. Set Reserved bits according to {{RFC4340}} to "0".
+
+1. Set X according to {{RFC4340}} to "1".
+
+1. Modify the IP header's encapsulated protocol from UDP to DCCP.
+
+1. Re-calculate IP header checksum.
+
+1. Reset DCCP checksum field: octet 7+8 = 0.
+
+1. Generate new checksum at octet 7+8 as described in {{RFC0768}}.
+
+1. Forward to destination based on the unmodified 4-tuple of IP-addresses and
+  ports.
+
+
+
+## U-DCCP negotiation (required????) {#negotiation}
+
+Tbd later if required.  Otherwise assumes explicit knowledge about the U-DCCP
+conversion between sender and receiver.
+
+
+
+# Security Considerations
+
+TBD.
+
+
+# IANA Considerations
+
+
+# Notes
+
+This document is inspired by {{RFC6773}} and some text passages for
+the -00 version are copied unmodified.
+
+
+# Acknowledgments
+
+
+--- back
